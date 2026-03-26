@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("viewer")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BasecampToken {
+  id           String   @id @default(cuid())
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  basecampId  Int             @unique
+  name        String
+  description String?
+  status      String          @default("active")
+  url         String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  todoLists   TodoList[]
+  cardTables  CardTable[]
+  schedules   ScheduleEntry[]
+}
+
+model TodoList {
+  id             String     @id @default(cuid())
+  basecampId     Int        @unique
+  projectId      String
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String
+  completedRatio Float      @default(0)
+  url            String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  todos          TodoItem[]
+}
+
+model TodoItem {
+  id          String    @id @default(cuid())
+  basecampId  Int       @unique
+  listId      String
+  list        TodoList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  content     String
+  assigneeIds Int[]
+  dueOn       DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  url         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model CardTable {
+  id         String       @id @default(cuid())
+  basecampId Int          @unique
+  projectId  String
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  columns    CardColumn[]
+}
+
+model CardColumn {
+  id         String    @id @default(cuid())
+  basecampId Int       @unique
+  tableId    String
+  table      CardTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  title      String
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  cards      Card[]
+}
+
+model Card {
+  id          String    @id @default(cuid())
+  basecampId  Int       @unique
+  columnId    String
+  column      CardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  title       String
+  assigneeIds Int[]
+  dueOn       DateTime?
+  url         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ScheduleEntry {
+  id          String    @id @default(cuid())
+  basecampId  Int       @unique
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  summary     String
+  startsAt    DateTime?
+  endsAt      DateTime?
+  assigneeIds Int[]
+  url         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Person {
+  id         String   @id @default(cuid())
+  basecampId Int      @unique
+  name       String
+  email      String?
+  avatarUrl  String?
+  admin      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model SyncLog {
+  id            String    @id @default(cuid())
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  status        String    @default("running")
+  recordsSynced Int       @default(0)
+  errors        String?
+  durationMs    Int?
+}
