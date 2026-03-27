@@ -13,17 +13,15 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const result = await runFullSync();
-    return NextResponse.json(result);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: message, success: false },
-      { status: 500 }
-    );
-  }
+  // Start sync in background — don't await, return immediately
+  runFullSync().catch((err) => {
+    console.error("[sync] Background sync failed:", err);
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Sync started. Check /api/sync for status.",
+  });
 }
 
 export async function GET() {
@@ -33,7 +31,6 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Return latest sync status
   const { prisma } = await import("@/lib/db");
   const lastSync = await prisma.syncLog.findFirst({
     orderBy: { startedAt: "desc" },

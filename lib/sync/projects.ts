@@ -40,15 +40,12 @@ export async function syncProjects(client: BasecampClient): Promise<{
     });
     count++;
 
-    // Extract dock tool IDs
+    // Extract dock tool IDs — include even disabled tools (they may have data)
     const dock = project.dock || [];
-    const todoSet = dock.find((d) => d.name === "todoset" && d.enabled);
-    const cardTable = dock.find(
-      (d) => d.name === "kanban_board" && d.enabled
-    );
-    const schedule = dock.find((d) => d.name === "schedule" && d.enabled);
+    const todoSet = dock.find((d) => d.name === "todoset");
+    const cardTable = dock.find((d) => d.name === "kanban_board");
+    const schedule = dock.find((d) => d.name === "schedule");
 
-    // Extract IDs from dock URLs
     projects.push({
       project,
       todoSetId: todoSet ? extractIdFromUrl(todoSet.url) : null,
