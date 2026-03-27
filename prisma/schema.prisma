@@ -28,7 +28,7 @@ model BasecampToken {
 
 model Project {
   id          String          @id @default(cuid())
-  basecampId  Int             @unique
+  basecampId  BigInt          @unique
   name        String
   description String?
   status      String          @default("active")
@@ -42,7 +42,7 @@ model Project {
 
 model TodoList {
   id             String     @id @default(cuid())
-  basecampId     Int        @unique
+  basecampId     BigInt     @unique
   projectId      String
   project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name           String
@@ -55,11 +55,11 @@ model TodoList {
 
 model TodoItem {
   id          String    @id @default(cuid())
-  basecampId  Int       @unique
+  basecampId  BigInt    @unique
   listId      String
   list        TodoList  @relation(fields: [listId], references: [id], onDelete: Cascade)
   content     String
-  assigneeIds Int[]
+  assigneeIds BigInt[]
   dueOn       DateTime?
   completed   Boolean   @default(false)
   completedAt DateTime?
@@ -70,7 +70,7 @@ model TodoItem {
 
 model CardTable {
   id         String       @id @default(cuid())
-  basecampId Int          @unique
+  basecampId BigInt       @unique
   projectId  String
   project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name       String
@@ -81,7 +81,7 @@ model CardTable {
 
 model CardColumn {
   id         String    @id @default(cuid())
-  basecampId Int       @unique
+  basecampId BigInt    @unique
   tableId    String
   table      CardTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
   title      String
@@ -93,11 +93,11 @@ model CardColumn {
 
 model Card {
   id          String    @id @default(cuid())
-  basecampId  Int       @unique
+  basecampId  BigInt    @unique
   columnId    String
   column      CardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
   title       String
-  assigneeIds Int[]
+  assigneeIds BigInt[]
   dueOn       DateTime?
   url         String?
   createdAt   DateTime  @default(now())
@@ -106,13 +106,13 @@ model Card {
 
 model ScheduleEntry {
   id          String    @id @default(cuid())
-  basecampId  Int       @unique
+  basecampId  BigInt    @unique
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   summary     String
   startsAt    DateTime?
   endsAt      DateTime?
-  assigneeIds Int[]
+  assigneeIds BigInt[]
   url         String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -120,7 +120,7 @@ model ScheduleEntry {
 
 model Person {
   id         String   @id @default(cuid())
-  basecampId Int      @unique
+  basecampId BigInt   @unique
   name       String
   email      String?
   avatarUrl  String?
