@@ -6,7 +6,12 @@ export async function syncPeople(client: BasecampClient): Promise<number> {
   const people = await getPeople(client);
   let count = 0;
 
-  for (const person of people) {
+  // Only sync actual users (not clients, bots, etc.)
+  const activeUsers = people.filter(
+    (p) => p.personable_type === "User"
+  );
+
+  for (const person of activeUsers) {
     await prisma.person.upsert({
       where: { basecampId: person.id },
       update: {
@@ -26,6 +31,6 @@ export async function syncPeople(client: BasecampClient): Promise<number> {
     count++;
   }
 
-  console.log(`[sync] Synced ${count} people`);
+  console.log(`[sync] Synced ${count} people (filtered from ${people.length} total)`);
   return count;
 }
