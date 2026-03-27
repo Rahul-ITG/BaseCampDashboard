@@ -11,6 +11,8 @@ export async function syncPeople(client: BasecampClient): Promise<number> {
     (p) => p.personable_type === "User"
   );
 
+  const syncedIds: bigint[] = [];
+
   for (const person of activeUsers) {
     await prisma.person.upsert({
       where: { basecampId: person.id },
@@ -28,7 +30,18 @@ export async function syncPeople(client: BasecampClient): Promise<number> {
         admin: person.admin,
       },
     });
+    syncedIds.push(BigInt(person.id));
     count++;
+  }
+
+  // Remove non-User people from previous syncs
+  if (syncedIds.length > 0) {
+    const deleted = await prisma.person.deleteMany({
+      where: { basecampId: { notIn: syncedIds } },
+    });
+    if (deleted.count > 0) {
+      console.log(`[sync] Cleaned up ${deleted.count} non-user people`);
+    }
   }
 
   console.log(`[sync] Synced ${count} people (filtered from ${people.length} total)`);

@@ -12,7 +12,7 @@ import { SyncButton } from "@/components/dashboard/sync-button";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [openTodos, activeCards, upcomingEvents, teamMembers, lastSync] =
+  const [openTodos, activeCards, upcomingEvents, teamMembers, lastSync, overdueTodos] =
     await Promise.all([
       prisma.todoItem.count({ where: { completed: false } }),
       prisma.card.count(),
@@ -21,6 +21,9 @@ export default async function HomePage() {
       prisma.syncLog.findFirst({
         orderBy: { startedAt: "desc" },
         where: { status: { not: "running" } },
+      }),
+      prisma.todoItem.count({
+        where: { completed: false, dueOn: { lt: new Date() } },
       }),
     ]);
 
@@ -73,9 +76,17 @@ export default async function HomePage() {
                 No data yet — click &quot;Sync Now&quot; to pull from Basecamp.
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Data synced. Dashboard views coming in next update.
-              </p>
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-2xl font-bold text-destructive">
+                    {overdueTodos}
+                  </span>{" "}
+                  overdue to-dos
+                </p>
+                <p className="text-muted-foreground">
+                  out of {openTodos.toLocaleString()} open items
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
