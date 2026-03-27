@@ -8,11 +8,17 @@ interface CardTableResponse {
   lists: {
     id: number;
     title: string;
+    url: string;
     position?: number;
-    cards_count: number;
-    cards_url: string;
   }[];
-  lists_url?: string;
+}
+
+interface ColumnDetailResponse {
+  id: number;
+  title: string;
+  cards_count: number;
+  cards_url: string;
+  color: string | null;
 }
 
 interface CardResponse {
@@ -38,15 +44,9 @@ export async function syncCards(
     if (!dbProject) continue;
 
     try {
-      // Fetch card table — columns (lists) are embedded in the response
+      // Fetch card table — columns (lists) are embedded but lack cards_url
       const table = await client.get<CardTableResponse>(
         `/buckets/${project.id}/card_tables/${cardTableId}.json`
-      );
-
-      console.log(
-        `[sync] Card table "${table.title}" for project ${project.name}: ${
-          (table.lists || []).length
-        } columns, lists_url: ${table.lists_url || "none"}`
       );
 
       const dbTable = await prisma.cardTable.upsert({
@@ -60,88 +60,77 @@ export async function syncCards(
       });
       count++;
 
-      // Try embedded lists first, fall back to fetching lists_url
-      let columns = table.lists || [];
+      const embeddedColumns = table.lists || [];
+      console.log(
+        `[sync] Card table "${table.title}" (${project.name}): ${embeddedColumns.length} columns`
+      );
 
-      if (columns.length === 0 && table.lists_url) {
-        console.log(
-          `[sync] No embedded lists, fetching from lists_url: ${table.lists_url}`
-        );
+      for (let i = 0; i < embeddedColumns.length; i++) {
+        const col = embeddedColumns[i];
+
         try {
-          columns = await client.getAll<CardTableResponse["lists"][0]>(
-            table.lists_url
-          );
-        } catch (err) {
-          console.error(`[sync] Error fetching lists_url:`, err);
-        }
-      }
+          // Fetch column detail to get cards_count and cards_url
+          const colDetail = await client.get<ColumnDetailResponse>(col.url);
 
-      for (let i = 0; i < columns.length; i++) {
-        const column = columns[i];
+          const dbColumn = await prisma.cardColumn.upsert({
+            where: { basecampId: BigInt(col.id) },
+            update: {
+              title: colDetail.title,
+              position: col.position ?? i,
+            },
+            create: {
+              basecampId: BigInt(col.id),
+              tableId: dbTable.id,
+              title: colDetail.title,
+              position: col.position ?? i,
+            },
+          });
+          count++;
 
-        console.log(
-          `[sync]   Column "${column.title}": cards_count=${column.cards_count}, cards_url=${column.cards_url}`
-        );
+          // Fetch cards if column has any
+          if (colDetail.cards_count > 0 && colDetail.cards_url) {
+            const cards = await client.getAll<CardResponse>(
+              colDetail.cards_url
+            );
 
-        const dbColumn = await prisma.cardColumn.upsert({
-          where: { basecampId: BigInt(column.id) },
-          update: {
-            title: column.title,
-            position: column.position ?? i,
-          },
-          create: {
-            basecampId: BigInt(column.id),
-            tableId: dbTable.id,
-            title: column.title,
-            position: column.position ?? i,
-          },
-        });
-        count++;
+            console.log(
+              `[sync]   Column "${colDetail.title}": ${cards.length} cards`
+            );
 
-        // Always try to fetch cards — don't trust cards_count
-        try {
-          // Use cards_url from the API response if available, otherwise construct it
-          const cardsUrl =
-            column.cards_url ||
-            `/buckets/${project.id}/card_tables/lists/${column.id}/cards.json`;
-
-          const cards = await client.getAll<CardResponse>(cardsUrl);
-
-          console.log(
-            `[sync]     Fetched ${cards.length} cards from column "${column.title}"`
-          );
-
-          for (const card of cards) {
-            await prisma.card.upsert({
-              where: { basecampId: BigInt(card.id) },
-              update: {
-                title: card.title,
-                assigneeIds: card.assignees?.map((a) => BigInt(a.id)) || [],
-                dueOn: card.due_on ? new Date(card.due_on) : null,
-                url: card.app_url,
-              },
-              create: {
-                basecampId: BigInt(card.id),
-                columnId: dbColumn.id,
-                title: card.title,
-                assigneeIds: card.assignees?.map((a) => BigInt(a.id)) || [],
-                dueOn: card.due_on ? new Date(card.due_on) : null,
-                url: card.app_url,
-              },
-            });
-            count++;
+            for (const card of cards) {
+              await prisma.card.upsert({
+                where: { basecampId: BigInt(card.id) },
+                update: {
+                  title: card.title,
+                  assigneeIds:
+                    card.assignees?.map((a) => BigInt(a.id)) || [],
+                  dueOn: card.due_on ? new Date(card.due_on) : null,
+                  url: card.app_url,
+                },
+                create: {
+                  basecampId: BigInt(card.id),
+                  columnId: dbColumn.id,
+                  title: card.title,
+                  assigneeIds:
+                    card.assignees?.map((a) => BigInt(a.id)) || [],
+                  dueOn: card.due_on ? new Date(card.due_on) : null,
+                  url: card.app_url,
+                },
+              });
+              count++;
+            }
           }
         } catch (err) {
           console.error(
-            `[sync] Error syncing cards for column ${column.id} "${column.title}":`,
-            err
+            `[sync] Error syncing column ${col.id} "${col.title}":`,
+            err instanceof Error ? err.message : err
           );
         }
       }
     } catch (err) {
       console.error(
-        `[sync] Error syncing card table for project ${project.id} "${project.name}":`,
-        err
+        `[sync] Error syncing card table for project "${project.name}":`,
+        err instanceof Error ? err.message : err
       );
     }
   }

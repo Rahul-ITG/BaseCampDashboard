@@ -13,6 +13,12 @@ export async function runFullSync(): Promise<{
   durationMs: number;
   error?: string;
 }> {
+  // Clean up any stuck "running" syncs from previous crashed runs
+  await prisma.syncLog.updateMany({
+    where: { status: "running" },
+    data: { status: "crashed", completedAt: new Date() },
+  });
+
   const startedAt = new Date();
   const syncLog = await prisma.syncLog.create({
     data: { startedAt, status: "running" },
