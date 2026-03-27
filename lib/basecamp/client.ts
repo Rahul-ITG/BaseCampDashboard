@@ -31,6 +31,7 @@ export class BasecampClient {
   /**
    * GET a paginated resource, following Link headers (rel="next").
    * Returns the concatenated array of all pages.
+   * Accepts both relative paths and absolute URLs.
    */
   async getAll<T>(path: string): Promise<T[]> {
     const results: T[] = [];
@@ -38,8 +39,16 @@ export class BasecampClient {
 
     while (url) {
       await rateLimiter.acquire();
-      const response = await this.http.get<T[]>(url);
-      results.push(...response.data);
+      // Strip baseURL prefix if the URL is absolute to avoid double-prefixing
+      const requestUrl = url.startsWith("http")
+        ? url.replace(BASE_URL, "")
+        : url;
+      const response = await this.http.get<T[]>(requestUrl);
+
+      // Handle case where response is not an array (single object endpoint)
+      if (Array.isArray(response.data)) {
+        results.push(...response.data);
+      }
 
       // Parse Link header for next page
       const linkHeader = response.headers["link"] as string | undefined;
