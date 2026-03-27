@@ -6,22 +6,41 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CheckSquare, Kanban, Calendar, Users } from "lucide-react";
+import { prisma } from "@/lib/db";
+import { SyncButton } from "@/components/dashboard/sync-button";
 
-const stats = [
-  { label: "Open To-Dos", value: "--", icon: CheckSquare },
-  { label: "Active Cards", value: "--", icon: Kanban },
-  { label: "Upcoming Events", value: "--", icon: Calendar },
-  { label: "Team Members", value: "--", icon: Users },
-];
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [openTodos, activeCards, upcomingEvents, teamMembers, lastSync] =
+    await Promise.all([
+      prisma.todoItem.count({ where: { completed: false } }),
+      prisma.card.count(),
+      prisma.scheduleEntry.count(),
+      prisma.person.count(),
+      prisma.syncLog.findFirst({
+        orderBy: { startedAt: "desc" },
+        where: { status: { not: "running" } },
+      }),
+    ]);
+
+  const stats = [
+    { label: "Open To-Dos", value: openTodos, icon: CheckSquare },
+    { label: "Active Cards", value: activeCards, icon: Kanban },
+    { label: "Schedule Entries", value: upcomingEvents, icon: Calendar },
+    { label: "Team Members", value: teamMembers, icon: Users },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Overview of all Basecamp activity across projects.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Overview of all Basecamp activity across projects.
+          </p>
+        </div>
+        <SyncButton />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -49,9 +68,15 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Coming soon — connect Basecamp to populate data.
-            </p>
+            {openTodos === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No data yet — click &quot;Sync Now&quot; to pull from Basecamp.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Data synced. Dashboard views coming in next update.
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -60,9 +85,41 @@ export default function HomePage() {
             <CardDescription>Recent sync activity and status</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Coming soon — sync engine will be configured next.
-            </p>
+            {lastSync ? (
+              <div className="space-y-1 text-sm">
+                <p>
+                  Status:{" "}
+                  <span
+                    className={
+                      lastSync.status === "success"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }
+                  >
+                    {lastSync.status}
+                  </span>
+                </p>
+                <p>Records synced: {lastSync.recordsSynced}</p>
+                <p>
+                  Duration:{" "}
+                  {lastSync.durationMs
+                    ? `${(lastSync.durationMs / 1000).toFixed(1)}s`
+                    : "--"}
+                </p>
+                <p className="text-muted-foreground">
+                  {lastSync.completedAt
+                    ? new Date(lastSync.completedAt).toLocaleString()
+                    : "--"}
+                </p>
+                {lastSync.errors && (
+                  <p className="text-red-600">{lastSync.errors}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No sync runs yet — click &quot;Sync Now&quot; to start.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
