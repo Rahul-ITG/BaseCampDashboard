@@ -13,15 +13,20 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Start sync in background — don't await, return immediately
-  runFullSync().catch((err) => {
-    console.error("[sync] Background sync failed:", err);
-  });
-
-  return NextResponse.json({
-    success: true,
-    message: "Sync started. Check /api/sync for status.",
-  });
+  // Run sync within the request so Railway doesn't kill the process
+  try {
+    const result = await runFullSync();
+    return NextResponse.json({
+      ...result,
+      message: `Sync completed: ${result.recordsSynced} records in ${(result.durationMs / 1000).toFixed(1)}s`,
+    });
+  } catch (err) {
+    console.error("[sync] Sync failed:", err);
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Sync failed" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET() {

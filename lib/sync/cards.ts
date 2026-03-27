@@ -13,14 +13,6 @@ interface CardTableResponse {
   }[];
 }
 
-interface ColumnDetailResponse {
-  id: number;
-  title: string;
-  cards_count: number;
-  cards_url: string;
-  color: string | null;
-}
-
 interface CardResponse {
   id: number;
   title: string;
@@ -44,7 +36,7 @@ export async function syncCards(
     if (!dbProject) continue;
 
     try {
-      // Fetch card table — columns (lists) are embedded but lack cards_url
+      // Fetch card table — columns (lists) are embedded
       const table = await client.get<CardTableResponse>(
         `/buckets/${project.id}/card_tables/${cardTableId}.json`
       );
@@ -61,68 +53,61 @@ export async function syncCards(
       count++;
 
       const embeddedColumns = table.lists || [];
-      console.log(
-        `[sync] Card table "${table.title}" (${project.name}): ${embeddedColumns.length} columns`
-      );
 
       for (let i = 0; i < embeddedColumns.length; i++) {
         const col = embeddedColumns[i];
 
+        const dbColumn = await prisma.cardColumn.upsert({
+          where: { basecampId: BigInt(col.id) },
+          update: {
+            title: col.title,
+            position: col.position ?? i,
+          },
+          create: {
+            basecampId: BigInt(col.id),
+            tableId: dbTable.id,
+            title: col.title,
+            position: col.position ?? i,
+          },
+        });
+        count++;
+
+        // Fetch cards using the known URL pattern — no extra API call needed
         try {
-          // Fetch column detail to get cards_count and cards_url
-          const colDetail = await client.get<ColumnDetailResponse>(col.url);
+          const cardsUrl = `/buckets/${project.id}/card_tables/lists/${col.id}/cards.json`;
+          const cards = await client.getAll<CardResponse>(cardsUrl);
 
-          const dbColumn = await prisma.cardColumn.upsert({
-            where: { basecampId: BigInt(col.id) },
-            update: {
-              title: colDetail.title,
-              position: col.position ?? i,
-            },
-            create: {
-              basecampId: BigInt(col.id),
-              tableId: dbTable.id,
-              title: colDetail.title,
-              position: col.position ?? i,
-            },
-          });
-          count++;
-
-          // Fetch cards if column has any
-          if (colDetail.cards_count > 0 && colDetail.cards_url) {
-            const cards = await client.getAll<CardResponse>(
-              colDetail.cards_url
-            );
-
+          if (cards.length > 0) {
             console.log(
-              `[sync]   Column "${colDetail.title}": ${cards.length} cards`
+              `[sync] ${project.name} > "${col.title}": ${cards.length} cards`
             );
+          }
 
-            for (const card of cards) {
-              await prisma.card.upsert({
-                where: { basecampId: BigInt(card.id) },
-                update: {
-                  title: card.title,
-                  assigneeIds:
-                    card.assignees?.map((a) => BigInt(a.id)) || [],
-                  dueOn: card.due_on ? new Date(card.due_on) : null,
-                  url: card.app_url,
-                },
-                create: {
-                  basecampId: BigInt(card.id),
-                  columnId: dbColumn.id,
-                  title: card.title,
-                  assigneeIds:
-                    card.assignees?.map((a) => BigInt(a.id)) || [],
-                  dueOn: card.due_on ? new Date(card.due_on) : null,
-                  url: card.app_url,
-                },
-              });
-              count++;
-            }
+          for (const card of cards) {
+            await prisma.card.upsert({
+              where: { basecampId: BigInt(card.id) },
+              update: {
+                title: card.title,
+                assigneeIds:
+                  card.assignees?.map((a) => BigInt(a.id)) || [],
+                dueOn: card.due_on ? new Date(card.due_on) : null,
+                url: card.app_url,
+              },
+              create: {
+                basecampId: BigInt(card.id),
+                columnId: dbColumn.id,
+                title: card.title,
+                assigneeIds:
+                  card.assignees?.map((a) => BigInt(a.id)) || [],
+                dueOn: card.due_on ? new Date(card.due_on) : null,
+                url: card.app_url,
+              },
+            });
+            count++;
           }
         } catch (err) {
           console.error(
-            `[sync] Error syncing column ${col.id} "${col.title}":`,
+            `[sync] Error fetching cards for column "${col.title}":`,
             err instanceof Error ? err.message : err
           );
         }

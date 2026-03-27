@@ -29,11 +29,24 @@ export async function runFullSync(): Promise<{
   let totalRecords = 0;
   const errors: string[] = [];
 
+  // Helper: persist progress to DB after each step so we can debug crashes
+  async function updateProgress(step: string) {
+    await prisma.syncLog.update({
+      where: { id: syncLog.id },
+      data: {
+        recordsSynced: totalRecords,
+        errors: errors.length > 0 ? `[${step}] ${errors.join("; ")}` : `[${step}] in progress`,
+      },
+    }).catch(() => {}); // don't let logging errors crash the sync
+  }
+
   try {
+    await updateProgress("getToken");
     const accessToken = await getValidToken();
     const client = new BasecampClient(accessToken);
 
     // 1. Sync people
+    await updateProgress("people:start");
     try {
       const peopleCount = await syncPeople(client);
       totalRecords += peopleCount;
@@ -44,6 +57,7 @@ export async function runFullSync(): Promise<{
     }
 
     // 2. Sync projects and get dock info
+    await updateProgress("projects:start");
     let projects: Awaited<ReturnType<typeof syncProjects>>["projects"] = [];
     try {
       const result = await syncProjects(client);
@@ -56,6 +70,7 @@ export async function runFullSync(): Promise<{
     }
 
     // 3. Sync todos
+    await updateProgress("todos:start");
     try {
       const todosCount = await syncTodos(client, projects);
       totalRecords += todosCount;
@@ -66,6 +81,7 @@ export async function runFullSync(): Promise<{
     }
 
     // 4. Sync cards
+    await updateProgress("cards:start");
     try {
       const cardsCount = await syncCards(client, projects);
       totalRecords += cardsCount;
@@ -76,6 +92,7 @@ export async function runFullSync(): Promise<{
     }
 
     // 5. Sync schedules
+    await updateProgress("schedules:start");
     try {
       const schedulesCount = await syncSchedules(client, projects);
       totalRecords += schedulesCount;
