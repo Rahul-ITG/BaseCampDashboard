@@ -4,8 +4,6 @@ import { prisma } from "@/lib/db";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CheckSquare, ListTodo, AlertTriangle } from "lucide-react";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { AvatarGroup } from "@/components/dashboard/avatar-group";
 import { format } from "date-fns";
 
 export default async function TodosPage() {
@@ -57,162 +58,158 @@ export default async function TodosPage() {
   const completionRate =
     totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
 
-  // Get assignee names for overdue todos
   const allAssigneeIds = overdueTodos.flatMap((t) => t.assigneeIds);
   const uniqueAssigneeIds = Array.from(new Set(allAssigneeIds.map(String)));
-  const people = await prisma.person.findMany({
-    where: { basecampId: { in: uniqueAssigneeIds.map(BigInt) } },
-    select: { basecampId: true, name: true },
-  });
+  const people = uniqueAssigneeIds.length > 0
+    ? await prisma.person.findMany({
+        where: { basecampId: { in: uniqueAssigneeIds.map(BigInt) } },
+        select: { basecampId: true, name: true, avatarUrl: true },
+      })
+    : [];
   const personMap = new Map(
-    people.map((p) => [p.basecampId.toString(), p.name])
+    people.map((p) => [p.basecampId.toString(), { name: p.name, avatarUrl: p.avatarUrl }])
   );
 
+  function getAssigneePeople(ids: bigint[]) {
+    return ids
+      .map((id) => personMap.get(id.toString()))
+      .filter(Boolean) as { name: string; avatarUrl: string | null }[];
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">To-Dos</h2>
-        <p className="text-muted-foreground">
-          Progress, overdue items, and completion stats across all projects.
-        </p>
+        <p className="label-uppercase">Task Management</p>
+        <h2 className="text-2xl font-bold tracking-tight mt-1">To-Do Progress</h2>
       </div>
 
-      {/* Summary stats */}
+      {/* Summary stat cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Overall Completion
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{completionRate}%</div>
-            <Progress value={completionRate} className="mt-2" />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {completedTodos.toLocaleString()} of {totalTodos.toLocaleString()} to-dos complete
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Open To-Dos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(totalTodos - completedTodos).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">
-              Overdue
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {overdueTodos.length}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          icon={CheckSquare}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          label="Overall Completion"
+          value={`${completionRate}%`}
+          subtitle={`${completedTodos.toLocaleString()} of ${totalTodos.toLocaleString()} complete`}
+        />
+        <StatCard
+          icon={ListTodo}
+          iconBg="bg-amber-500/10"
+          iconColor="text-amber-600"
+          label="Open To-Dos"
+          value={totalTodos - completedTodos}
+          subtitle="Awaiting completion"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          iconBg="bg-red-500/10"
+          iconColor="text-destructive"
+          label="Overdue"
+          value={overdueTodos.length}
+          subtitle="Past due date"
+        />
       </div>
 
       {/* Overdue items */}
       {overdueTodos.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-destructive">Overdue To-Dos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>To-Do</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>List</TableHead>
-                  <TableHead>Assignees</TableHead>
-                  <TableHead>Due Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {overdueTodos.map((todo) => (
-                  <TableRow key={todo.id}>
-                    <TableCell className="max-w-[300px] truncate font-medium">
-                      {todo.url ? (
-                        <a
-                          href={todo.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:underline"
-                        >
-                          {todo.content}
-                        </a>
-                      ) : (
-                        todo.content
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {todo.list.project.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {todo.list.name}
-                    </TableCell>
-                    <TableCell>
-                      {todo.assigneeIds.length > 0
-                        ? todo.assigneeIds
-                            .map(
-                              (id) =>
-                                personMap.get(id.toString()) || "Unknown"
-                            )
-                            .join(", ")
-                        : "Unassigned"}
-                    </TableCell>
-                    <TableCell>
-                      {todo.dueOn && (
-                        <Badge variant="destructive">
-                          {format(new Date(todo.dueOn), "MMM d, yyyy")}
-                        </Badge>
-                      )}
-                    </TableCell>
+        <div>
+          <h3 className="text-xl font-bold tracking-tight mb-4">
+            Overdue To-Dos
+          </h3>
+          <Card>
+            <CardContent className="pt-7">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>To-Do</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>List</TableHead>
+                    <TableHead>Assignees</TableHead>
+                    <TableHead>Due Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {overdueTodos.map((todo) => (
+                    <TableRow key={todo.id}>
+                      <TableCell className="max-w-[300px] font-medium">
+                        {todo.url ? (
+                          <a
+                            href={todo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary transition-colors"
+                          >
+                            {todo.content}
+                          </a>
+                        ) : (
+                          todo.content
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {todo.list.project.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {todo.list.name}
+                      </TableCell>
+                      <TableCell>
+                        {todo.assigneeIds.length > 0 ? (
+                          <AvatarGroup
+                            people={getAssigneePeople(todo.assigneeIds)}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            Unassigned
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {todo.dueOn && (
+                          <Badge variant="overdue">
+                            {format(new Date(todo.dueOn), "MMM d, yyyy")}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* To-Do Lists with progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle>To-Do Lists</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {todoLists.map((list) => (
-              <div key={list.id} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{list.name}</span>
-                    <span className="text-muted-foreground">
-                      — {list.project.name}
+      <div>
+        <h3 className="text-xl font-bold tracking-tight mb-4">To-Do Lists</h3>
+        <Card>
+          <CardContent className="pt-7">
+            <div className="space-y-5">
+              {todoLists.map((list) => (
+                <div key={list.id} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{list.name}</span>
+                      <span className="text-muted-foreground">
+                        {list.project.name}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {Math.round(list.completedRatio * 100)}%
                     </span>
                   </div>
-                  <span className="text-muted-foreground">
-                    {Math.round(list.completedRatio * 100)}%
-                  </span>
+                  <Progress value={list.completedRatio * 100} className="h-2" />
                 </div>
-                <Progress value={list.completedRatio * 100} className="h-2" />
-              </div>
-            ))}
-            {todoLists.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No to-do lists found. Run a sync to pull data.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+              {todoLists.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No to-do lists found. Run a sync to pull data.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

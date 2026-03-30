@@ -34,19 +34,25 @@ export function WorkloadChart({ data }: { data: WorkloadData[] }) {
         layout="vertical"
         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
       >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis type="number" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(252, 18%, 91%)" />
+        <XAxis type="number" tick={{ fontSize: 12, fill: "hsl(230, 10%, 46%)" }} />
         <YAxis
           dataKey="name"
           type="category"
           width={150}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: "hsl(230, 20%, 13%)" }}
         />
-        <Tooltip />
+        <Tooltip
+          contentStyle={{
+            borderRadius: "0.75rem",
+            border: "none",
+            boxShadow: "0px 12px 32px -4px rgba(26, 27, 34, 0.06)",
+          }}
+        />
         <Legend />
-        <Bar dataKey="todos" name="Open To-Dos" fill="hsl(221, 83%, 53%)" stackId="a" />
+        <Bar dataKey="todos" name="Open To-Dos" fill="hsl(223, 100%, 28%)" stackId="a" radius={[0, 0, 0, 0]} />
         <Bar dataKey="cards" name="Cards" fill="hsl(142, 71%, 45%)" stackId="a" />
-        <Bar dataKey="schedules" name="Schedule" fill="hsl(38, 92%, 50%)" stackId="a" />
+        <Bar dataKey="schedules" name="Schedule" fill="hsl(38, 92%, 50%)" stackId="a" radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

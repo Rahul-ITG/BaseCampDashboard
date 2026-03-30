@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Basecamp Dashboard",
+  title: "Executive Curator — Basecamp Dashboard",
   description: "Leadership visibility dashboard for Basecamp 3",
 };
 

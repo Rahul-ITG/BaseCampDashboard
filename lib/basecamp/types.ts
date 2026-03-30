@@ -118,6 +118,28 @@ export interface BasecampCard {
   bucket: { id: number; name: string; type: string };
 }
 
+export interface BasecampMessage {
+  id: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  subject: string;
+  type: string;
+  url: string;
+  app_url: string;
+  creator: BasecampPerson;
+  bucket: { id: number; name: string; type: string };
+}
+
+export interface BasecampProjectMembership {
+  id: number;
+  name: string;
+  email_address: string;
+  avatar_url: string;
+  admin: boolean;
+}
+
 export interface BasecampScheduleEntry {
   id: number;
   status: string;

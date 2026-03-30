@@ -20,7 +20,6 @@ export function SyncButton() {
         setResult(
           `Synced ${data.recordsSynced} records in ${(data.durationMs / 1000).toFixed(1)}s`
         );
-        // Refresh page to show updated stats
         window.location.reload();
       } else {
         setResult(`Error: ${data.error || "Sync failed"}`);
@@ -42,5 +41,37 @@ export function SyncButton() {
         <span className="text-sm text-muted-foreground">{result}</span>
       )}
     </div>
+  );
+}
+
+export function SyncButtonCompact() {
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        window.location.reload();
+      }
+    } catch {
+      // silently fail — full status is on home page
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  return (
+    <Button
+      onClick={handleSync}
+      disabled={syncing}
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9"
+      title="Sync Now"
+    >
+      <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+    </Button>
   );
 }

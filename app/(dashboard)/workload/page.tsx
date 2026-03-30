@@ -4,9 +4,9 @@ import { prisma } from "@/lib/db";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Users, ListTodo, AlertTriangle } from "lucide-react";
+import { StatCard } from "@/components/dashboard/stat-card";
 import { WorkloadChart } from "@/components/dashboard/workload-chart";
 
 export default async function WorkloadPage() {
@@ -40,7 +42,6 @@ export default async function WorkloadPage() {
     people.map((p) => [p.basecampId.toString(), p.name])
   );
 
-  // Aggregate counts per person
   const workload = new Map<
     string,
     { name: string; todos: number; cards: number; schedules: number }
@@ -77,7 +78,6 @@ export default async function WorkloadPage() {
     }
   }
 
-  // Sort by total assignments descending
   const sortedWorkload = Array.from(workload.values()).sort(
     (a, b) =>
       b.todos + b.cards + b.schedules - (a.todos + a.cards + a.schedules)
@@ -92,50 +92,40 @@ export default async function WorkloadPage() {
   ).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Workload</h2>
-        <p className="text-muted-foreground">
-          Open items per person across all projects.
-        </p>
+        <p className="label-uppercase">Resource Management</p>
+        <h2 className="text-2xl font-bold tracking-tight mt-1">
+          Team Workload
+        </h2>
       </div>
 
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              People with Assignments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{sortedWorkload.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Assignments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalAssignments.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-amber-600">
-              Unassigned To-Dos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {unassignedTodos.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          icon={Users}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          label="People with Assignments"
+          value={sortedWorkload.length}
+          subtitle="Active contributors"
+        />
+        <StatCard
+          icon={ListTodo}
+          iconBg="bg-green-500/10"
+          iconColor="text-green-600"
+          label="Total Assignments"
+          value={totalAssignments}
+          subtitle="Across all projects"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          iconBg="bg-amber-500/10"
+          iconColor="text-amber-600"
+          label="Unassigned To-Dos"
+          value={unassignedTodos}
+          subtitle="Need assignment"
+        />
       </div>
 
       {/* Bar chart */}
@@ -153,69 +143,71 @@ export default async function WorkloadPage() {
       </Card>
 
       {/* Detailed table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sortedWorkload.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No assignments found. Run a sync to pull data.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Person</TableHead>
-                  <TableHead className="text-right">Open To-Dos</TableHead>
-                  <TableHead className="text-right">Cards</TableHead>
-                  <TableHead className="text-right">Schedule</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedWorkload.map((person) => {
-                  const total =
-                    person.todos + person.cards + person.schedules;
-                  return (
-                    <TableRow key={person.name}>
-                      <TableCell className="font-medium">
-                        {person.name}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {person.todos > 0 ? (
-                          <Badge variant="secondary">{person.todos}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {person.cards > 0 ? (
-                          <Badge variant="secondary">{person.cards}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {person.schedules > 0 ? (
-                          <Badge variant="secondary">
-                            {person.schedules}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        {total}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        <h3 className="text-xl font-bold tracking-tight mb-4">
+          Detailed Breakdown
+        </h3>
+        <Card>
+          <CardContent className="pt-7">
+            {sortedWorkload.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No assignments found. Run a sync to pull data.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Person</TableHead>
+                    <TableHead className="text-right">Open To-Dos</TableHead>
+                    <TableHead className="text-right">Cards</TableHead>
+                    <TableHead className="text-right">Schedule</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedWorkload.map((person) => {
+                    const total =
+                      person.todos + person.cards + person.schedules;
+                    return (
+                      <TableRow key={person.name}>
+                        <TableCell className="font-medium">
+                          {person.name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {person.todos > 0 ? (
+                            <Badge variant="secondary">{person.todos}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {person.cards > 0 ? (
+                            <Badge variant="secondary">{person.cards}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {person.schedules > 0 ? (
+                            <Badge variant="secondary">
+                              {person.schedules}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {total}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

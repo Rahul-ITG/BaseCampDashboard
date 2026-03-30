@@ -1,18 +1,19 @@
+export const dynamic = "force-dynamic";
+
+import { prisma } from "@/lib/db";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CheckSquare, Kanban, Calendar, Users } from "lucide-react";
-import { prisma } from "@/lib/db";
+import { Badge } from "@/components/ui/badge";
+import { CheckSquare, Kanban, Calendar, Users, CheckCircle } from "lucide-react";
+import { StatCard } from "@/components/dashboard/stat-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
 
-export const dynamic = "force-dynamic";
-
 export default async function HomePage() {
-  const [openTodos, activeCards, upcomingEvents, teamMembers, lastSync, overdueTodos] =
+  const [openTodos, activeCards, scheduleCount, teamMembers, lastSync, overdueTodos] =
     await Promise.all([
       prisma.todoItem.count({ where: { completed: false } }),
       prisma.card.count(),
@@ -22,118 +23,247 @@ export default async function HomePage() {
         orderBy: { startedAt: "desc" },
         where: { status: { not: "running" } },
       }),
-      prisma.todoItem.count({
+      prisma.todoItem.findMany({
         where: { completed: false, dueOn: { lt: new Date() } },
+        include: {
+          list: {
+            include: {
+              project: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { dueOn: "asc" },
+        take: 5,
       }),
     ]);
 
-  const stats = [
-    { label: "Open To-Dos", value: openTodos, icon: CheckSquare },
-    { label: "Active Cards", value: activeCards, icon: Kanban },
-    { label: "Schedule Entries", value: upcomingEvents, icon: Calendar },
-    { label: "Team Members", value: teamMembers, icon: Users },
-  ];
+  const upcomingSchedule = await prisma.scheduleEntry.findMany({
+    where: {
+      startsAt: { gte: new Date() },
+    },
+    include: {
+      project: { select: { name: true } },
+    },
+    orderBy: { startsAt: "asc" },
+    take: 8,
+  });
+
+  const isHealthy = lastSync?.status === "success" || lastSync?.status === "partial";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Overview of all Basecamp activity across projects.
-          </p>
+          <p className="label-uppercase">Dashboard Overview</p>
+          <h2 className="text-2xl font-bold tracking-tight mt-1">
+            Executive Summary
+          </h2>
         </div>
         <SyncButton />
       </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.label}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <StatCard
+          icon={CheckSquare}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          label="To-Dos"
+          value={openTodos}
+          subtitle="Open tasks"
+        />
+        <StatCard
+          icon={Kanban}
+          iconBg="bg-green-500/10"
+          iconColor="text-green-600"
+          label="Active Cards"
+          value={activeCards}
+          subtitle="In progress"
+        />
+        <StatCard
+          icon={Calendar}
+          iconBg="bg-amber-500/10"
+          iconColor="text-amber-600"
+          label="Schedule"
+          value={scheduleCount}
+          subtitle="Entries tracked"
+        />
+        <StatCard
+          icon={Users}
+          iconBg="bg-purple-500/10"
+          iconColor="text-purple-600"
+          label="Team"
+          value={teamMembers}
+          subtitle="Collaborators"
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Overdue Items</CardTitle>
-            <CardDescription>
-              To-dos and cards past their due date
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {openTodos === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No data yet — click &quot;Sync Now&quot; to pull from Basecamp.
-              </p>
-            ) : (
-              <div className="space-y-1 text-sm">
-                <p>
-                  <span className="text-2xl font-bold text-destructive">
-                    {overdueTodos}
-                  </span>{" "}
-                  overdue to-dos
+      {/* Overdue + Sync Health */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        {/* Overdue Items */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold tracking-tight">Overdue Items</h3>
+          </div>
+          <Card>
+            <CardContent className="pt-7">
+              {overdueTodos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No overdue items. All caught up.
                 </p>
-                <p className="text-muted-foreground">
-                  out of {openTodos.toLocaleString()} open items
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Sync Health</CardTitle>
-            <CardDescription>Recent sync activity and status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {lastSync ? (
-              <div className="space-y-1 text-sm">
-                <p>
-                  Status:{" "}
-                  <span
-                    className={
-                      lastSync.status === "success"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }
-                  >
-                    {lastSync.status}
-                  </span>
-                </p>
-                <p>Records synced: {lastSync.recordsSynced}</p>
-                <p>
-                  Duration:{" "}
-                  {lastSync.durationMs
-                    ? `${(lastSync.durationMs / 1000).toFixed(1)}s`
-                    : "--"}
-                </p>
-                <p className="text-muted-foreground">
-                  {lastSync.completedAt
-                    ? new Date(lastSync.completedAt).toLocaleString()
-                    : "--"}
-                </p>
-                {lastSync.errors && (
-                  <p className="text-red-600">{lastSync.errors}</p>
+              ) : (
+                <div className="space-y-1">
+                  {overdueTodos.map((todo) => {
+                    const daysLate = Math.floor(
+                      (Date.now() - new Date(todo.dueOn!).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    );
+                    return (
+                      <div
+                        key={todo.id}
+                        className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-secondary"
+                      >
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {todo.url ? (
+                              <a
+                                href={todo.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-primary"
+                              >
+                                {todo.content}
+                              </a>
+                            ) : (
+                              todo.content
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {todo.list.project.name} &bull; {todo.list.name}
+                          </p>
+                        </div>
+                        <Badge variant="overdue" className="shrink-0">
+                          {daysLate === 1
+                            ? "Delayed 1 day"
+                            : `Delayed ${daysLate} days`}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sync Health — dark blue card */}
+        <div className="space-y-4">
+          <Card className="bg-primary text-primary-foreground hover:shadow-none">
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                {isHealthy ? (
+                  <Badge className="bg-green-500/20 text-green-300 hover:bg-green-500/20">
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    System Stable
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-500/20 text-red-300 hover:bg-red-500/20">
+                    Needs Attention
+                  </Badge>
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No sync runs yet — click &quot;Sync Now&quot; to start.
+              <p className="text-xs font-semibold uppercase tracking-[0.05em] text-white/50">
+                Last Successful Sync
               </p>
-            )}
-          </CardContent>
-        </Card>
+              <CardTitle className="text-2xl text-white">
+                {lastSync?.completedAt
+                  ? new Date(lastSync.completedAt).toLocaleString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    }) +
+                    " " +
+                    new Date(lastSync.completedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "No syncs yet"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {lastSync ? (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-white/50 text-xs uppercase tracking-wider">
+                      Status
+                    </p>
+                    <p className="font-medium text-white capitalize">
+                      {lastSync.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/50 text-xs uppercase tracking-wider">
+                      Records
+                    </p>
+                    <p className="font-medium text-white">
+                      {lastSync.recordsSynced.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-white/60">
+                  Click &quot;Sync Now&quot; to pull data from Basecamp.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Upcoming Timeline */}
+      {upcomingSchedule.length > 0 && (
+        <div>
+          <h3 className="text-xl font-bold tracking-tight mb-4">
+            Upcoming Timeline
+          </h3>
+          <div className="overflow-x-auto pb-2">
+            <div className="flex gap-4 min-w-max">
+              {upcomingSchedule.map((entry, i) => (
+                <Card
+                  key={entry.id}
+                  className="w-52 shrink-0"
+                >
+                  <CardContent className="pt-5 pb-5 px-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          i === 0 ? "bg-primary" : "bg-muted-foreground/30"
+                        }`}
+                      />
+                      <p className="label-uppercase">
+                        {entry.startsAt
+                          ? new Date(entry.startsAt).toLocaleDateString(
+                              "en-US",
+                              { weekday: "short", month: "short", day: "numeric" }
+                            )
+                          : "TBD"}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-sm leading-snug">
+                      {entry.summary}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {entry.project.name}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

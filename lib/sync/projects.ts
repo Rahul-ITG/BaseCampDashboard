@@ -8,6 +8,7 @@ export interface ProjectWithDock {
   todoSetId: number | null;
   cardTableId: number | null;
   scheduleId: number | null;
+  messageBoardId: number | null;
 }
 
 export async function syncProjects(client: BasecampClient): Promise<{
@@ -45,12 +46,14 @@ export async function syncProjects(client: BasecampClient): Promise<{
     const todoSet = dock.find((d) => d.name === "todoset");
     const cardTable = dock.find((d) => d.name === "kanban_board");
     const schedule = dock.find((d) => d.name === "schedule");
+    const messageBoard = dock.find((d) => d.name === "message_board");
 
     projects.push({
       project,
       todoSetId: todoSet ? extractIdFromUrl(todoSet.url) : null,
       cardTableId: cardTable ? extractIdFromUrl(cardTable.url) : null,
       scheduleId: schedule ? extractIdFromUrl(schedule.url) : null,
+      messageBoardId: messageBoard ? extractIdFromUrl(messageBoard.url) : null,
     });
   }
 

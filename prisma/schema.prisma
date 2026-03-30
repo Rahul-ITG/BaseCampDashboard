@@ -35,9 +35,11 @@ model Project {
   url         String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-  todoLists   TodoList[]
-  cardTables  CardTable[]
-  schedules   ScheduleEntry[]
+  todoLists      TodoList[]
+  cardTables     CardTable[]
+  schedules      ScheduleEntry[]
+  messageBoards  MessageBoard[]
+  members        ProjectMember[]
 }
 
 model TodoList {
@@ -127,6 +129,40 @@ model Person {
   admin      Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model MessageBoard {
+  id         String    @id @default(cuid())
+  basecampId BigInt    @unique
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
+}
+
+model Message {
+  id          String       @id @default(cuid())
+  basecampId  BigInt       @unique
+  boardId     String
+  board       MessageBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  subject     String
+  creatorId   BigInt
+  creatorName String
+  url         String?
+  postedAt    DateTime
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ProjectMember {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  personId  BigInt
+
+  @@unique([projectId, personId])
 }
 
 model SyncLog {

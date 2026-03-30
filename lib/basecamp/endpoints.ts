@@ -7,6 +7,8 @@ import type {
   BasecampCardColumn,
   BasecampCard,
   BasecampScheduleEntry,
+  BasecampMessage,
+  BasecampProjectMembership,
 } from "./types";
 
 export function getProjects(client: BasecampClient) {
@@ -54,6 +56,25 @@ export function getCards(
 ) {
   return client.getAll<BasecampCard>(
     `/buckets/${bucketId}/card_tables/lists/${columnId}/cards.json`
+  );
+}
+
+export function getMessages(
+  client: BasecampClient,
+  bucketId: number,
+  messageBoardId: number
+) {
+  return client.getAll<BasecampMessage>(
+    `/buckets/${bucketId}/message_boards/${messageBoardId}/messages.json`
+  );
+}
+
+export function getProjectPeople(
+  client: BasecampClient,
+  projectId: number
+) {
+  return client.getAll<BasecampProjectMembership>(
+    `/projects/${projectId}/people.json`
   );
 }
 
