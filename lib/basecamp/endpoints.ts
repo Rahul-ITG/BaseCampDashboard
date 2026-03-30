@@ -64,7 +64,9 @@ export function getMessages(
   bucketId: number,
   messageBoardId: number
 ) {
-  return client.getAll<BasecampMessage>(
+  // Only fetch first page of messages (most recent ~50) to avoid
+  // paginating through thousands of messages and blowing memory/timeout
+  return client.get<BasecampMessage[]>(
     `/buckets/${bucketId}/message_boards/${messageBoardId}/messages.json`
   );
 }
@@ -73,7 +75,8 @@ export function getProjectPeople(
   client: BasecampClient,
   projectId: number
 ) {
-  return client.getAll<BasecampProjectMembership>(
+  // Use get (single page) instead of getAll to avoid pagination issues
+  return client.get<BasecampProjectMembership[]>(
     `/projects/${projectId}/people.json`
   );
 }

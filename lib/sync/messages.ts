@@ -31,7 +31,8 @@ export async function syncMessages(
 
       let messages;
       try {
-        messages = await getMessages(client, project.id, messageBoardId);
+        const raw = await getMessages(client, project.id, messageBoardId);
+        messages = Array.isArray(raw) ? raw : [];
       } catch (err) {
         console.error(
           `[sync] Failed to fetch messages for "${project.name}":`,

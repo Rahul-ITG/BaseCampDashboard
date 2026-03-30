@@ -18,7 +18,8 @@ export async function syncMembers(
     try {
       let members;
       try {
-        members = await getProjectPeople(client, project.id);
+        const raw = await getProjectPeople(client, project.id);
+        members = Array.isArray(raw) ? raw : [];
       } catch (err) {
         // This endpoint may not be available for all project types
         console.warn(
@@ -28,7 +29,7 @@ export async function syncMembers(
         continue;
       }
 
-      if (!Array.isArray(members) || members.length === 0) continue;
+      if (members.length === 0) continue;
 
       // Replace all members for this project
       await prisma.projectMember.deleteMany({
