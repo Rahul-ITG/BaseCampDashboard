@@ -11,6 +11,7 @@ import {
   Calendar,
   Users,
   MessageSquare,
+  ScrollText,
   Settings,
   Menu,
   LogOut,
@@ -36,6 +37,7 @@ const navItems = [
   { href: "/timeline", label: "Timeline", icon: Calendar },
   { href: "/workload", label: "Workload", icon: Users },
   { href: "/messages", label: "Messages", icon: MessageSquare },
+  { href: "/logs", label: "Logs", icon: ScrollText },
 ];
 
 const bottomNavItems = [

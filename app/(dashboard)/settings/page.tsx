@@ -15,7 +15,7 @@ import { ProjectToggleList } from "@/components/dashboard/project-toggle";
 export default async function SettingsPage() {
   const [projects, lastSync, syncCount] = await Promise.all([
     prisma.project.findMany({
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,

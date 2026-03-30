@@ -125,7 +125,7 @@ export function KanbanBoard({ tables, personMap }: KanbanBoardProps) {
       ) : filteredTables.length === 0 && search ? null : (
         <Accordion
           type="multiple"
-          defaultValue={filteredTables.map((t) => t.id)}
+          defaultValue={[]}
           className="space-y-4"
         >
           {filteredTables.map((table) => {
