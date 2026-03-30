@@ -8,6 +8,7 @@ import { syncCards } from "./cards";
 import { syncSchedules } from "./schedules";
 import { syncMessages } from "./messages";
 import { syncMembers } from "./members";
+import { cleanupDisabledProjects } from "./cleanup";
 
 export async function runFullSync(): Promise<{
   success: boolean;
@@ -71,10 +72,24 @@ export async function runFullSync(): Promise<{
       errors.push(msg);
     }
 
+    // Filter to only sync-enabled projects
+    const enabledBasecampIds = new Set(
+      (await prisma.project.findMany({
+        where: { syncEnabled: true },
+        select: { basecampId: true },
+      })).map((p) => p.basecampId.toString())
+    );
+    const enabledProjects = projects.filter((p) =>
+      enabledBasecampIds.has(p.project.id.toString())
+    );
+    console.log(
+      `[sync] ${enabledProjects.length} of ${projects.length} projects enabled for sync`
+    );
+
     // 3. Sync todos
     await updateProgress("todos:start");
     try {
-      const todosCount = await syncTodos(client, projects);
+      const todosCount = await syncTodos(client, enabledProjects);
       totalRecords += todosCount;
     } catch (err) {
       const msg = `Todos sync failed: ${err instanceof Error ? err.message : err}`;
@@ -85,7 +100,7 @@ export async function runFullSync(): Promise<{
     // 4. Sync cards
     await updateProgress("cards:start");
     try {
-      const cardsCount = await syncCards(client, projects);
+      const cardsCount = await syncCards(client, enabledProjects);
       totalRecords += cardsCount;
     } catch (err) {
       const msg = `Cards sync failed: ${err instanceof Error ? err.message : err}`;
@@ -96,7 +111,7 @@ export async function runFullSync(): Promise<{
     // 5. Sync schedules
     await updateProgress("schedules:start");
     try {
-      const schedulesCount = await syncSchedules(client, projects);
+      const schedulesCount = await syncSchedules(client, enabledProjects);
       totalRecords += schedulesCount;
     } catch (err) {
       const msg = `Schedules sync failed: ${err instanceof Error ? err.message : err}`;
@@ -107,7 +122,7 @@ export async function runFullSync(): Promise<{
     // 6. Sync messages
     await updateProgress("messages:start");
     try {
-      const messagesCount = await syncMessages(client, projects);
+      const messagesCount = await syncMessages(client, enabledProjects);
       totalRecords += messagesCount;
     } catch (err) {
       const msg = `Messages sync failed: ${err instanceof Error ? err.message : err}`;
@@ -118,10 +133,23 @@ export async function runFullSync(): Promise<{
     // 7. Sync project membership
     await updateProgress("members:start");
     try {
-      const membersCount = await syncMembers(client, projects);
+      const membersCount = await syncMembers(client, enabledProjects);
       totalRecords += membersCount;
     } catch (err) {
       const msg = `Members sync failed: ${err instanceof Error ? err.message : err}`;
+      console.error(`[sync] ${msg}`);
+      errors.push(msg);
+    }
+
+    // 8. Cleanup disabled projects
+    await updateProgress("cleanup:start");
+    try {
+      const cleanedCount = await cleanupDisabledProjects();
+      if (cleanedCount > 0) {
+        console.log(`[sync] Cleaned ${cleanedCount} records from disabled projects`);
+      }
+    } catch (err) {
+      const msg = `Cleanup failed: ${err instanceof Error ? err.message : err}`;
       console.error(`[sync] ${msg}`);
       errors.push(msg);
     }

@@ -16,21 +16,39 @@ export async function syncMembers(
     if (!dbProject) continue;
 
     try {
-      const members = await getProjectPeople(client, project.id);
+      let members;
+      try {
+        members = await getProjectPeople(client, project.id);
+      } catch (err) {
+        // This endpoint may not be available for all project types
+        console.warn(
+          `[sync] Could not fetch members for "${project.name}":`,
+          err instanceof Error ? err.message : err
+        );
+        continue;
+      }
+
+      if (!Array.isArray(members) || members.length === 0) continue;
 
       // Replace all members for this project
       await prisma.projectMember.deleteMany({
         where: { projectId: dbProject.id },
       });
 
-      for (const member of members) {
-        await prisma.projectMember.create({
-          data: {
-            projectId: dbProject.id,
-            personId: BigInt(member.id),
-          },
+      // Batch create for efficiency
+      const memberData = members
+        .filter((m) => m && m.id)
+        .map((member) => ({
+          projectId: dbProject.id,
+          personId: BigInt(member.id),
+        }));
+
+      if (memberData.length > 0) {
+        await prisma.projectMember.createMany({
+          data: memberData,
+          skipDuplicates: true,
         });
-        count++;
+        count += memberData.length;
       }
     } catch (err) {
       console.error(

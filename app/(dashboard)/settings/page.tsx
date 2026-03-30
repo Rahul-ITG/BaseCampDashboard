@@ -8,8 +8,9 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Settings, Database, Clock } from "lucide-react";
+import { Database, Clock, Settings } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ProjectToggleList } from "@/components/dashboard/project-toggle";
 
 export default async function SettingsPage() {
   const [projects, lastSync, syncCount] = await Promise.all([
@@ -19,6 +20,7 @@ export default async function SettingsPage() {
         id: true,
         name: true,
         status: true,
+        syncEnabled: true,
         basecampId: true,
         _count: {
           select: {
@@ -38,6 +40,8 @@ export default async function SettingsPage() {
     prisma.syncLog.count(),
   ]);
 
+  const enabledCount = projects.filter((p) => p.syncEnabled).length;
+
   return (
     <div className="space-y-8">
       <div>
@@ -52,8 +56,8 @@ export default async function SettingsPage() {
           iconBg="bg-primary/10"
           iconColor="text-primary"
           label="Projects Synced"
-          value={projects.length}
-          subtitle="Active in Basecamp"
+          value={`${enabledCount} / ${projects.length}`}
+          subtitle="Enabled for sync"
         />
         <StatCard
           icon={Clock}
@@ -80,13 +84,13 @@ export default async function SettingsPage() {
         />
       </div>
 
-      {/* Active Projects */}
+      {/* Active Projects with toggles */}
       <Card>
         <CardHeader>
-          <CardTitle>Active Projects</CardTitle>
+          <CardTitle>Project Sync Control</CardTitle>
           <CardDescription>
-            All Basecamp projects currently being synced. Project filtering
-            coming soon.
+            Toggle which projects are synced. Disabled projects will have their
+            data removed on the next sync.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -95,28 +99,7 @@ export default async function SettingsPage() {
               No projects synced yet. Run a sync first.
             </p>
           ) : (
-            <div className="space-y-1">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="flex items-center justify-between rounded-xl px-4 py-3 transition-colors hover:bg-secondary"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {project._count.todoLists} lists &bull;{" "}
-                      {project._count.cardTables} boards &bull;{" "}
-                      {project._count.schedules} events &bull;{" "}
-                      {project._count.messageBoards} message boards &bull;{" "}
-                      {project._count.members} members
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {project.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <ProjectToggleList projects={projects} />
           )}
         </CardContent>
       </Card>

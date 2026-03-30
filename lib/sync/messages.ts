@@ -29,29 +29,55 @@ export async function syncMessages(
       });
       count++;
 
-      const messages = await getMessages(client, project.id, messageBoardId);
+      let messages;
+      try {
+        messages = await getMessages(client, project.id, messageBoardId);
+      } catch (err) {
+        console.error(
+          `[sync] Failed to fetch messages for "${project.name}":`,
+          err instanceof Error ? err.message : err
+        );
+        continue;
+      }
 
       for (const msg of messages) {
-        await prisma.message.upsert({
-          where: { basecampId: BigInt(msg.id) },
-          update: {
-            subject: msg.subject || msg.title,
-            creatorId: BigInt(msg.creator.id),
-            creatorName: msg.creator.name,
-            url: msg.app_url,
-            postedAt: new Date(msg.created_at),
-          },
-          create: {
-            basecampId: BigInt(msg.id),
-            boardId: dbBoard.id,
-            subject: msg.subject || msg.title,
-            creatorId: BigInt(msg.creator.id),
-            creatorName: msg.creator.name,
-            url: msg.app_url,
-            postedAt: new Date(msg.created_at),
-          },
-        });
-        count++;
+        // Guard against missing creator or subject
+        const subject = msg.subject || msg.title || "(No subject)";
+        const creatorId = msg.creator?.id;
+        const creatorName = msg.creator?.name || "Unknown";
+
+        if (!creatorId) {
+          console.warn(`[sync] Skipping message ${msg.id}: no creator ID`);
+          continue;
+        }
+
+        try {
+          await prisma.message.upsert({
+            where: { basecampId: BigInt(msg.id) },
+            update: {
+              subject,
+              creatorId: BigInt(creatorId),
+              creatorName,
+              url: msg.app_url || null,
+              postedAt: new Date(msg.created_at),
+            },
+            create: {
+              basecampId: BigInt(msg.id),
+              boardId: dbBoard.id,
+              subject,
+              creatorId: BigInt(creatorId),
+              creatorName,
+              url: msg.app_url || null,
+              postedAt: new Date(msg.created_at),
+            },
+          });
+          count++;
+        } catch (err) {
+          console.error(
+            `[sync] Error upserting message ${msg.id}:`,
+            err instanceof Error ? err.message : err
+          );
+        }
       }
 
       if (messages.length > 0) {
