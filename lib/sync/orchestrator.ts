@@ -6,7 +6,6 @@ import { syncProjects } from "./projects";
 import { syncTodos } from "./todos";
 import { syncCards } from "./cards";
 import { syncSchedules } from "./schedules";
-import { syncMessages } from "./messages";
 import { syncMembers } from "./members";
 import { cleanupDisabledProjects } from "./cleanup";
 
@@ -119,18 +118,7 @@ export async function runFullSync(): Promise<{
       errors.push(msg);
     }
 
-    // 6. Sync messages
-    await updateProgress("messages:start");
-    try {
-      const messagesCount = await syncMessages(client, enabledProjects);
-      totalRecords += messagesCount;
-    } catch (err) {
-      const msg = `Messages sync failed: ${err instanceof Error ? err.message : err}`;
-      console.error(`[sync] ${msg}`);
-      errors.push(msg);
-    }
-
-    // 7. Sync project membership
+    // 6. Sync project membership
     await updateProgress("members:start");
     try {
       const membersCount = await syncMembers(client, enabledProjects);

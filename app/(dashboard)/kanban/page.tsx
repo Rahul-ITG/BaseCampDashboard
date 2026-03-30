@@ -5,8 +5,9 @@ import { KanbanBoard } from "@/components/dashboard/kanban-board";
 
 export default async function KanbanPage() {
   const cardTables = await prisma.cardTable.findMany({
+    where: { project: { syncEnabled: true } },
     include: {
-      project: { select: { name: true } },
+      project: { select: { name: true, createdAt: true } },
       columns: {
         orderBy: { position: "asc" },
         include: {
@@ -16,7 +17,7 @@ export default async function KanbanPage() {
         },
       },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { project: { createdAt: "desc" } },
   });
 
   const allAssigneeIds = cardTables.flatMap((t) =>

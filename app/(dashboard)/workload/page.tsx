@@ -24,13 +24,15 @@ import { WorkloadChart } from "@/components/dashboard/workload-chart";
 export default async function WorkloadPage() {
   const [openTodos, cards, scheduleEntries, people] = await Promise.all([
     prisma.todoItem.findMany({
-      where: { completed: false },
+      where: { completed: false, list: { project: { syncEnabled: true } } },
       select: { assigneeIds: true },
     }),
     prisma.card.findMany({
+      where: { column: { table: { project: { syncEnabled: true } } } },
       select: { assigneeIds: true },
     }),
     prisma.scheduleEntry.findMany({
+      where: { project: { syncEnabled: true } },
       select: { assigneeIds: true },
     }),
     prisma.person.findMany({

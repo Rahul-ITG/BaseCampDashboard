@@ -12,8 +12,11 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { formatDistanceToNow } from "date-fns";
 
 export default async function MessagesPage() {
+  const enabledBoard = { board: { project: { syncEnabled: true } } };
+
   const [messages, totalCount, thisWeekCount] = await Promise.all([
     prisma.message.findMany({
+      where: { ...enabledBoard },
       include: {
         board: {
           include: {
@@ -24,9 +27,10 @@ export default async function MessagesPage() {
       orderBy: { postedAt: "desc" },
       take: 50,
     }),
-    prisma.message.count(),
+    prisma.message.count({ where: { ...enabledBoard } }),
     prisma.message.count({
       where: {
+        ...enabledBoard,
         postedAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         },

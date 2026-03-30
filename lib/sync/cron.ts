@@ -4,17 +4,10 @@ import { runFullSync } from "./orchestrator";
 let isRunning = false;
 
 export function startSyncCron() {
-  const intervalMinutes = parseInt(
-    process.env.SYNC_INTERVAL_MINUTES || "15",
-    10
-  );
+  // Run once per day at 2:00 AM UTC
+  const cronExpression = "0 2 * * *";
 
-  // Convert minutes to cron expression: "*/15 * * * *"
-  const cronExpression = `*/${intervalMinutes} * * * *`;
-
-  console.log(
-    `[cron] Scheduling sync every ${intervalMinutes} minutes (${cronExpression})`
-  );
+  console.log(`[cron] Scheduling daily sync at 2:00 AM UTC`);
 
   cron.schedule(cronExpression, async () => {
     if (isRunning) {

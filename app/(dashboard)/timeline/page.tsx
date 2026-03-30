@@ -21,6 +21,7 @@ import { format, isPast, isToday, isFuture } from "date-fns";
 
 export default async function TimelinePage() {
   const entries = await prisma.scheduleEntry.findMany({
+    where: { project: { syncEnabled: true } },
     include: {
       project: { select: { name: true } },
     },
